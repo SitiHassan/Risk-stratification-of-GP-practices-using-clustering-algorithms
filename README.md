@@ -1,25 +1,316 @@
-# BSOL sample project folder
+# Risk Stratification of Practices Using Cardiovascular Conditions and Clustering Algorithms
 
-This git repository contains a shell that should be used as the default structure for new projects
-in the analytical team.  It won't fit all circumstances perfectly, and you can make changes and issue a 
-pull request for new features / changes.
+## Overview
 
-The aim of this template is two-fold: firstly to give a common structure for analytical projects to aid
-reproducibility, secondly to allow for additional security settings as default to prevent accidental upload of files that should not be committed to Git and GitHub.
+This work explores whether GP practices can be grouped according to their cardiovascular profiles using unsupervised machine learning techniques:
 
-__Please update/replace this README file with one relevant to your project__
+* K-means clustering
+* Partitioning around medoids (PAM) clustering
+* Hierarchical clustering
 
-## To use this template, please use the following practises:
+The original analytical request was to develop a heatmap comparing GP practices across a range of cardiovascular indicators. While this provides a useful view of individual indicators, it can be difficult to understand the overall cardiovascular profile of a practice when multiple indicators and clinical conditions are considered simultaneously.
 
-* Put any data files in the `data` folder.  This folder is explicitly named in the .gitignore file.  A further layer of security is that all xls, xlsx, csv and pdf files are also explicit ignored in the whole folder as well.  ___If you need to commit one of these files, you must use the `-f` (force) command in `commit`, but you must be sure there is no identifiable data.__
-* Save any documentation, images of support files in the `assets` folder.  This does not mean you should avoid commenting your code, but if you have an operating procedure or supporting documents, add them to this folder.
-* Please save all outputs: data, formatted tables, graphs etc. in the output folder.  This is also implicitly ignored by git, but you can use the `-f` (force) command in `commit` to add any you wish to publish to github.
+This work therefore extends the original analysis by asking:
+
+> **Can GP practices be grouped according to patterns of relative cardiovascular concern across multiple clinical domains?**
+
+The longer-term aim is to provide commissioners with an additional analytical tool for identifying patterns of concern and practices that may warrant further investigation, targeted support or training.
+
+The clustering is intended as an **exploratory prioritisation tool**, rather than a definitive classification of practice performance.
+
+## Data
+
+The analysis combines cardiovascular indicators from multiple healthcare datasets, including:
+
+- Quality and Outcomes Framework (QOF)
+- CVDPREVENT
+- Secondary Uses Service (SUS)
+- National Diabetes Audit (NDA)
+- Prescribing data
+- Mortality data
+- Fingertips
+- NHS registered population data
+
+Indicators are organised into seven cardiovascular domains:
+
+1. Acute Coronary Syndrome (ACS)
+2. Atrial Fibrillation (AF)
+3. Cholesterol
+4. Diabetes
+5. Heart Failure
+6. Hypertension
+7. Stroke
 
 
-### Please also consider the following:
-* Linting your code.  This is a formatting process that follows a rule set.  We broadly encourage the tidyverse standard, and recommend the `lintr` package.
-* Comment your code to make sure others can follow.
-* Consider your naming conventions: we recommend `snake case` where spaces are replaced by underscores and no capitals are use. E.g. `outpatient_referral_data`
+## Analytical Approach
 
+The analysis follows the workflow:
+
+**Data integration → Data quality assessment → Indicator standardisation → Domain composite scores → Exploratory analysis → PCA → Clustering → Cluster profiling**
+
+
+### 1. Data Quality and Preparation
+
+Data from the different sources are cleaned and integrated at GP practice level.
+
+Data quality checks include:
+
+- missing-value analysis;
+- indicator completeness;
+- numerator and denominator validation;
+- identification of extreme values;
+- investigation of denominator size;
+- ensuring legitimate zero-event practices are retained.
+
+
+### 2. Indicator Standardisation
+
+Indicators have different units, distributions and interpretations. They are therefore standardised before being combined.
+
+For indicator \(j\) and practice \(i\):
+
+\[
+z_{ij} = \frac{x_{ij} - \bar{x}_j}{s_j}
+\]
+
+where:
+
+- \(x_{ij}\) is the indicator value for practice \(i\);
+- \(\bar{x}_j\) is the mean of indicator \(j\);
+- \(s_j\) is the standard deviation of indicator \(j\).
+
+Indicator polarity is also aligned so that:
+
+> **Higher standardised scores consistently represent greater relative concern.**
+
+
+### 3. Domain Composite Scores
+
+Standardised indicators belonging to the same cardiovascular domain are combined to produce a domain composite score.
+
+For practice \(i\) and domain \(d\):
+
+\[
+D_{id} =
+\frac{1}{n_{id}}
+\sum_{j=1}^{n_{id}} z_{ij}
+\]
+
+where \(n_{id}\) represents the number of eligible indicators contributing to the domain score.
+
+Domain composite scores are subsequently standardised across practices.
+
+The resulting domain scores therefore represent the **relative position of each practice compared with other practices** within each cardiovascular domain.
+
+
+## Exploratory Data Analysis
+
+Before clustering, the distributions and relationships between domain scores are investigated.
+
+The analysis includes:
+
+- histograms of domain scores;
+- boxplots and outlier identification;
+- investigation of denominator size and indicator values;
+- correlation analysis;
+- scatterplot matrices;
+- Principal Component Analysis (PCA).
+
+Some domains, particularly ACS and Stroke, show strongly right-skewed distributions and extreme observations.
+
+Other domains, including Cholesterol and Hypertension, show substantially more symmetric distributions.
+
+
+## Correlation Analysis
+
+Pairwise correlations are examined to determine whether the cardiovascular domains contain distinct or highly overlapping information.
+
+Most relationships are weak to moderate, suggesting that the domains capture different aspects of the cardiovascular profile.
+
+A notable positive relationship is observed between Diabetes and Hypertension, with Cholesterol also contributing to a broader cardiometabolic pattern.
+
+
+## Principal Component Analysis
+
+PCA is used as an exploratory technique to investigate the dimensionality and underlying structure of GP cardiovascular profiles.
+
+The first principal component explains approximately **27%** of total variance, while the first two components explain approximately **45%**.
+
+Approximately **74%** of total variance requires four principal components.
+
+The first component is particularly associated with Diabetes, Cholesterol and Hypertension, suggesting a broader cardiometabolic dimension.
+
+However, practices do not form clearly separated groups in the first two principal components. The original seven standardised domain scores are therefore retained for clustering rather than reducing the analysis to PC1 and PC2.
+
+
+## Cluster Analysis
+
+Three clustering algorithms are compared:
+
+### K-means
+
+K-means partitions practices around cluster centroids by minimising within-cluster variation.
+
+Multiple random initialisations are used to reduce sensitivity to starting centroid positions.
+
+### Partitioning Around Medoids (PAM)
+
+PAM is similar to K-means but represents clusters using actual observations (medoids) rather than calculated centroids.
+
+This provides greater robustness to extreme observations.
+
+### Hierarchical Clustering
+
+Agglomerative hierarchical clustering is performed using Euclidean distance and Ward's minimum-variance method (`ward.D2`).
+
+Ward's method progressively merges groups while minimising increases in within-cluster variation.
+
+
+## Selecting the Number of Clusters
+
+Solutions containing different numbers of clusters are compared using **average silhouette width**.
+
+Silhouette width assesses both:
+
+- cohesion within clusters; and
+- separation between neighbouring clusters.
+
+Among the solutions investigated, **K-means with four clusters provides the strongest comparative solution**, with an average silhouette width of approximately **0.18**.
+
+However, this remains a relatively low silhouette value.
+
+The results therefore suggest that GP cardiovascular profiles are **not characterised by strongly separated natural clusters** and may instead vary along a more continuous spectrum.
+
+
+## Cluster Profiling
+
+Following clustering, each cluster is profiled by calculating the mean standardised domain score among practices assigned to that cluster.
+
+This allows the resulting groups to be interpreted according to their cardiovascular characteristics.
+
+Across the clustering approaches, several recurring patterns are observed, including:
+
+- small groups characterised by unusually high Stroke concern;
+- small groups characterised by unusually high ACS concern;
+- larger groups with relatively higher cardiometabolic concern;
+- larger groups with relatively lower cardiometabolic concern.
+
+The cardiometabolic profiles are primarily characterised by differences across:
+
+- Cholesterol;
+- Diabetes; and
+- Hypertension.
+
+Cluster numbers are arbitrary and are therefore interpreted according to their underlying domain profiles rather than their numerical labels.
+
+
+## Sensitivity Analysis
+
+Because several domain distributions contain skewness and extreme observations, cluster profiles are calculated using both **mean and median domain scores**.
+
+Median profiling produces broadly similar cardiovascular patterns to mean profiling.
+
+This provides additional evidence that the main cluster interpretations are not solely driven by a small number of extreme observations.
+
+
+## Key Findings
+
+The analysis provides evidence of some reproducible cardiovascular patterns across GP practices, particularly along a broader cardiometabolic dimension involving Diabetes, Cholesterol and Hypertension.
+
+However, overall cluster separation is weak.
+
+The findings therefore suggest that:
+
+- practices vary across multiple cardiovascular dimensions;
+- some recurring profiles can be identified;
+- cardiovascular risk profiles appear to exist more along a continuum than as clearly separated groups;
+- clustering can provide useful exploratory information but should not be used as a standalone classification of practice performance.
+
+
+## Potential Business Value
+
+The approach provides an analytical layer beyond a traditional indicator-level heatmap.
+
+Rather than only asking:
+
+> *Which practices have high concern for an individual indicator?*
+
+the analysis enables consideration of:
+
+> *Which practices show broader patterns of relative concern across multiple cardiovascular domains?*
+
+This could support commissioners in:
+
+- identifying practices for further investigation;
+- understanding multidimensional patterns of cardiovascular concern;
+- targeting support or training;
+- prioritising analytical investigation;
+- combining quantitative profiles with local intelligence and population-health information.
+
+
+## Limitations and Future Development
+
+### Different reporting periods
+
+The latest available indicators may represent different reporting periods due to differences in publication schedules and reporting lags.
+
+**Next step:** Extend the analysis across multiple time periods to assess the stability of practice profiles over time.
+
+
+### Rare-event measures
+
+Admission-based measures such as ACS and Stroke remain sensitive to practice population size, potentially producing unstable rates and extreme standardised scores.
+
+**Next step:** Explore multi-year pooling, minimum event/denominator thresholds or statistical smoothing approaches.
+
+
+### Unequal domain representation
+
+Domains contain different numbers of indicators, ranging from single-indicator domains to domains represented by several measures.
+
+**Next step:** Review and expand indicator coverage for under-represented domains where appropriate.
+
+
+### Equal weighting
+
+Indicators within domains are currently equally weighted. This is transparent and interpretable but may not fully represent differences in clinical importance or statistical reliability.
+
+**Next step:** Explore clinically informed or reliability-based weighting with subject-matter experts.
+
+
+### Population characteristics
+
+The clustering does not currently incorporate the characteristics of the populations served by individual GP practices.
+
+Observed differences may therefore reflect underlying population need as well as differences in healthcare delivery.
+
+**Next step:** Incorporate measures such as age structure, deprivation, ethnicity, disease prevalence and other population-need characteristics to provide additional context.
+
+
+## Interpretation
+
+The resulting clusters should **not** be interpreted as definitive categories of good- or poor-performing GP practices.
+
+Higher relative concern may reflect several factors, including:
+
+- underlying population need;
+- demographic composition;
+- disease prevalence;
+- statistical variation;
+- practice population size;
+- healthcare delivery and treatment performance.
+
+Cluster membership should therefore be considered alongside the underlying indicators, population characteristics and local intelligence when supporting commissioning decisions.
+
+
+## Conclusion
+
+This project demonstrates how an initial reporting requirement can be extended into a broader exploratory analytical framework.
+
+Rather than applying clustering simply because the technique is available, the analysis focuses on whether the resulting segmentation is statistically credible, interpretable and useful for the underlying business question.
+
+The findings indicate that although some reproducible cardiovascular profiles can be identified, GP practices largely vary along a continuous multidimensional spectrum.
+
+The clustering should therefore be viewed as a tool to support **exploration, prioritisation and further investigation**, rather than as a definitive classification system.
 
 This repository is dual licensed under the [Open Government v3]([https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/) & MIT. All code and outputs are subject to Crown Copyright.
