@@ -1,4 +1,4 @@
-# Risk Stratification of Practices Using Cardiovascular Conditions and Clustering Algorithms
+# Risk Stratification of Practices Using Cardiovascular Indicators and Clustering Algorithms
 
 ## Overview
 
@@ -14,13 +14,13 @@ This work therefore extends the original analysis by asking:
 
 > **Can GP practices be grouped according to patterns of relative cardiovascular concern across multiple clinical domains?**
 
-The longer-term aim is to provide commissioners with an additional analytical tool for identifying patterns of concern and practices that may warrant further investigation, targeted support or training.
+The longer-term aim is to provide commissioners with an additional analytical tool for identifying patterns of concern and prioritise practices for training or support.
 
 The clustering is intended as an **exploratory prioritisation tool**, rather than a definitive classification of practice performance.
 
 ## Data
 
-The analysis combines cardiovascular indicators from multiple healthcare datasets, including:
+The analysis combines cardiovascular indicators from multiple datasets, including:
 
 - Quality and Outcomes Framework (QOF)
 - CVDPREVENT
@@ -29,7 +29,7 @@ The analysis combines cardiovascular indicators from multiple healthcare dataset
 - Prescribing data
 - Mortality data
 - Fingertips
-- NHS registered population data
+- NHS Spine registered population data
 
 Indicators are organised into seven cardiovascular domains:
 
@@ -42,7 +42,7 @@ Indicators are organised into seven cardiovascular domains:
 7. Stroke
 
 
-## Analytical Approach
+## Methodology
 
 The analysis follows the workflow:
 
@@ -67,17 +67,18 @@ Data quality checks include:
 
 Indicators have different units, distributions and interpretations. They are therefore standardised before being combined.
 
-For indicator \(j\) and practice \(i\):
+For indicator $j$ and practice $i$:
 
-\[
+$$
 z_{ij} = \frac{x_{ij} - \bar{x}_j}{s_j}
-\]
+$$
 
 where:
 
-- \(x_{ij}\) is the indicator value for practice \(i\);
-- \(\bar{x}_j\) is the mean of indicator \(j\);
-- \(s_j\) is the standard deviation of indicator \(j\).
+- $x_{ij}$ is the indicator value for practice $i$;
+- $\bar{x}_j$ is the mean of indicator $j$ across practices;
+- $s_j$ is the standard deviation of indicator $j$.
+
 
 Indicator polarity is also aligned so that:
 
@@ -88,17 +89,27 @@ Indicator polarity is also aligned so that:
 
 Standardised indicators belonging to the same cardiovascular domain are combined to produce a domain composite score.
 
-For practice \(i\) and domain \(d\):
+For practice $i$ and domain $d$:
 
-\[
-D_{id} =
-\frac{1}{n_{id}}
-\sum_{j=1}^{n_{id}} z_{ij}
-\]
+$$
+D_{id} = \frac{1}{n_{id}}\sum_{j=1}^{n_{id}} z_{ij}
+$$
 
-where \(n_{id}\) represents the number of eligible indicators contributing to the domain score.
+where $n_{id}$ represents the number of eligible indicators contributing to the domain score.
 
-Domain composite scores are subsequently standardised across practices.
+The resulting domain composite scores are then standardised across practices:
+
+$$
+Z_{id} = \frac{D_{id} - \bar{D}_d}{s_{D_d}}
+$$
+
+where:
+
+- $D_{id}$ is the composite score for practice $i$ in domain $d$;
+- $\bar{D}_d$ is the mean domain composite score across practices;
+- $s_{D_d}$ is the standard deviation of the domain composite score.
+
+The resulting $Z_{id}$ is the final standardised domain score used in PCA and clustering.
 
 The resulting domain scores therefore represent the **relative position of each practice compared with other practices** within each cardiovascular domain.
 
@@ -226,91 +237,48 @@ The findings therefore suggest that:
 - cardiovascular risk profiles appear to exist more along a continuum than as clearly separated groups;
 - clustering can provide useful exploratory information but should not be used as a standalone classification of practice performance.
 
+# Discussions
 
-## Potential Business Value
+This approach provides an analytical layer beyond a traditional indicator-levle heatmap. Rather than only asking "Which practices have high concern for an individual indicator?", the analysis enables consideration of "Which practices show broader patterns of relative concern across multiple cardiovascular domains?". This could support commissioners
+in understanding multidimensional patterns of cardiovascualr concern, targeting support or training, and prioritising resources.
 
-The approach provides an analytical layer beyond a traditional indicator-level heatmap.
+The analysis has several limitations:
+1- Different reporting periods
+The analysis used the latest available indicators but these may represent different reporting periods due to differences in publication schedules and reporting lags. Therefore, this analysis can be extended across multiple time periods to assess the stability of practice profiles over time.
 
-Rather than only asking:
+2- Rare-event measures
+Some indicators such as admission-based rates in ACS and Stroke domains remain sensitive to practice population size, potentially producing unstable rates and extreme standardised scores. Next considerations would be to explore multi-year pooling or statistical smoothing methods.
 
-> *Which practices have high concern for an individual indicator?*
+3- Unequal domain representation
+Domains contain different numbers of indicators, ranging from single-indicator domains to domains represented by several indicators. Reviewing and expanding indicator coverage particularly for under-represented domains where appropriate would be a good next step to improve the analysis.
 
-the analysis enables consideration of:
+4- Equal weighting
+Indicators within domains are currently equally weighted, This is transparent and interpretable may not fully represent differences in clinical importance or statistical reliably. The next step would be to explore clinically informed or reliability-based weighting with subject-matter experts.
 
-> *Which practices show broader patterns of relative concern across multiple cardiovascular domains?*
+5- Population characteristics
+The clustering doesn't incorporate the characteristics of the populations served by individual GP practices. This is a particularly important limitation because higher relative concern may reflect several factors, including:
 
-This could support commissioners in:
+* underlying population need
+* demographic composition
+* disease prevalence
+* statistical variation
+* practice population size
 
-- identifying practices for further investigation;
-- understanding multidimensional patterns of cardiovascular concern;
-- targeting support or training;
-- prioritising analytical investigation;
-- combining quantitative profiles with local intelligence and population-health information.
-
-
-## Limitations and Future Development
-
-### Different reporting periods
-
-The latest available indicators may represent different reporting periods due to differences in publication schedules and reporting lags.
-
-**Next step:** Extend the analysis across multiple time periods to assess the stability of practice profiles over time.
-
-
-### Rare-event measures
-
-Admission-based measures such as ACS and Stroke remain sensitive to practice population size, potentially producing unstable rates and extreme standardised scores.
-
-**Next step:** Explore multi-year pooling, minimum event/denominator thresholds or statistical smoothing approaches.
-
-
-### Unequal domain representation
-
-Domains contain different numbers of indicators, ranging from single-indicator domains to domains represented by several measures.
-
-**Next step:** Review and expand indicator coverage for under-represented domains where appropriate.
-
-
-### Equal weighting
-
-Indicators within domains are currently equally weighted. This is transparent and interpretable but may not fully represent differences in clinical importance or statistical reliability.
-
-**Next step:** Explore clinically informed or reliability-based weighting with subject-matter experts.
-
-
-### Population characteristics
-
-The clustering does not currently incorporate the characteristics of the populations served by individual GP practices.
-
-Observed differences may therefore reflect underlying population need as well as differences in healthcare delivery.
-
-**Next step:** Incorporate measures such as age structure, deprivation, ethnicity, disease prevalence and other population-need characteristics to provide additional context.
-
-
-## Interpretation
-
-The resulting clusters should **not** be interpreted as definitive categories of good- or poor-performing GP practices.
-
-Higher relative concern may reflect several factors, including:
-
-- underlying population need;
-- demographic composition;
-- disease prevalence;
-- statistical variation;
-- practice population size;
-- healthcare delivery and treatment performance.
-
-Cluster membership should therefore be considered alongside the underlying indicators, population characteristics and local intelligence when supporting commissioning decisions.
+Therefore, it would be useful to incorporate measures such as age structure, deprivation, ethnicity, disease prevalence and other population-need characteristics to provide additional context.
 
 
 ## Conclusion
 
-This project demonstrates how an initial reporting requirement can be extended into a broader exploratory analytical framework.
+This work demonstrates how an initial reporting requirement can be extended into a broader exploratory analytical framework.
 
 Rather than applying clustering simply because the technique is available, the analysis focuses on whether the resulting segmentation is statistically credible, interpretable and useful for the underlying business question.
 
 The findings indicate that although some reproducible cardiovascular profiles can be identified, GP practices largely vary along a continuous multidimensional spectrum.
 
+Most importantly, the resulting clusters should **not** be interpreted as definitive categories or good- or poor-performing GP pratices because higher relative concern may reflect several factors as outlined above. Cluster membership should therefore be considered alongside the underlying indicators, population characteristics and local intelligence when supporting commissioning decisions. 
+
 The clustering should therefore be viewed as a tool to support **exploration, prioritisation and further investigation**, rather than as a definitive classification system.
+
+
 
 This repository is dual licensed under the [Open Government v3]([https://www.nationalarchives.gov.uk/doc/open-government-licence/version/3/) & MIT. All code and outputs are subject to Crown Copyright.
