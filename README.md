@@ -243,6 +243,7 @@ This approach provides an analytical layer beyond a traditional indicator-levle 
 in understanding multidimensional patterns of cardiovascualr concern, targeting support or training, and prioritising resources.
 
 The analysis has several limitations:
+
 1- Different reporting periods
 The analysis used the latest available indicators but these may represent different reporting periods due to differences in publication schedules and reporting lags. Therefore, this analysis can be extended across multiple time periods to assess the stability of practice profiles over time.
 
