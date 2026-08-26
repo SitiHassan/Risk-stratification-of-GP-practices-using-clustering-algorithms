@@ -282,7 +282,7 @@ gp_domain_composite_score |>
 - Negative = lower relative concern
 
 | Domain | Distribution | What the histogram shows |
-|----|----|----|
+|------------------------|------------------------|------------------------|
 | **Acute Coronary Syndrome** | **Strongly right-skewed** | Large concentration around low/average scores with a long positive tail and a few extreme high scores. |
 | **Stroke** | **Very strongly right-skewed** | Even more concentrated around the lower range, with a pronounced positive tail and extreme observations. |
 | **Atrial Fibrillation** | **Right-skewed / irregular** | Most observations are concentrated around the centre/lower range, with a positive tail and an isolated high value. |
@@ -809,7 +809,7 @@ The first two principal components captured only 45% of total variation, while f
 # Clustering algorithms
 
 | Method | Why include it |
-|----|----|
+|------------------------------------|------------------------------------|
 | **K-means** | Simple, widely understood, good baseline; but sensitive to outliers and assumes roughly compact/spherical clusters |
 | **PAM (K-medoids)** | More robust to extreme observations because cluster centres are actual practices rather than means |
 | **Hierarchical clustering** | Doesn't require fixing `k` before fitting and lets us explore nested practice groupings/dendrograms |
@@ -945,7 +945,7 @@ For each GP practice, the silhouette score compares:
 The silhouette score ranges from -1 to +1:
 
 | Silhouette | Meaning |
-|----|----|
+|------------------------------------|------------------------------------|
 | Close to **+1** | Practice fits its cluster very well and is far from other clusters |
 | Around **0** | Practice lies between clusters; clusters overlap |
 | Below **0** | Practice may fit another cluster better |
@@ -1411,6 +1411,197 @@ Smaller clusters were characterized by extreme Stroke or ACS scores.
 
 However, overall silhouette widths remained low, suggesting substantial overlap between practices and weak evidence for four clearly separated natural clusters.
 
+**Using median score for clusters profiling**
+
+```{r}
+get_cluster_profiles <- function(
+    data,
+    cluster_vector,
+    algorithm
+) {
+  
+  data |>
+    mutate(
+      cluster = factor(cluster_vector)
+    ) |>
+    pivot_longer(
+      cols = -c(geography_code, cluster),
+      names_to = "domain",
+      values_to = "score"
+    ) |>
+    group_by(
+      cluster,
+      domain
+    ) |>
+    summarise(
+      median_score = median(score, na.rm = TRUE),
+      .groups = "drop"
+    ) |>
+    mutate(
+      algorithm = algorithm
+    )
+}
+
+cluster_profiles_4 <- bind_rows(
+  
+  get_cluster_profiles(
+    gp_cluster_complete,
+    kmeans_4$cluster,
+    "K-means"
+  ),
+  
+  get_cluster_profiles(
+    gp_cluster_complete,
+    pam_4$clustering,
+    "PAM"
+  ),
+  
+  get_cluster_profiles(
+    gp_cluster_complete,
+    hierarchical_4,
+    "Hierarchical"
+  )
+)
+
+cluster_profiles_band_4 <- cluster_profiles_4 |>
+  mutate(
+    concern_band = case_when(
+      median_score >= 1    ~ "Higher relative concern",
+      median_score >= 0.5  ~ "Moderate relative concern",
+      median_score > -0.5  ~ "Around average",
+      median_score > -1    ~ "Lower relative concern",
+      TRUE               ~ "Very low relative concern"
+    ),
+    
+    concern_band = factor(
+      concern_band,
+      levels = c(
+        "Very low relative concern",
+        "Lower relative concern",
+        "Around average",
+        "Moderate relative concern",
+        "Higher relative concern"
+      )
+    )
+  )
+
+profile_annotations <- tibble(
+  algorithm = c(
+    "Hierarchical", "Hierarchical",
+    "K-means", "K-means",
+    "PAM", "PAM"
+  ),
+  cluster = factor(
+    c(3, 4, 4, 3, 4, 3),
+    levels = 1:4
+  ),
+  domain = "Profile",
+  profile = c(
+    "Higher cardiometabolic concern",
+    "Lower cardiometabolic concern",
+    "Higher cardiometabolic concern",
+    "Lower cardiometabolic concern",
+    "Higher cardiometabolic concern",
+    "Lower cardiometabolic concern"
+  )
+)
+
+domain_order <- c(
+  "Acute Coronory Syndrome",
+  "Atrial Fibrillation",
+  "Cholesterol",
+  "Diabetes",
+  "Heart Failure",
+  "Hypertension",
+  "Stroke",
+  "Profile"
+)
+
+cluster_profiles_band_4 <- cluster_profiles_band_4 |>
+  mutate(
+    domain = factor(
+      domain,
+      levels = domain_order
+    )
+  )
+
+profile_annotations <- profile_annotations |>
+  mutate(
+    domain = factor(
+      domain,
+      levels = domain_order
+    )
+  )
+
+cluster_profiles_band_4 |>
+  ggplot(
+    aes(
+      x = domain,
+      y = cluster,
+      fill = concern_band
+    )
+  ) +
+  geom_tile(
+    colour = "white",
+    linewidth = 1
+  ) +
+  geom_text(
+    aes(
+      label = round(median_score, 1)
+    ),
+    size = 3
+  ) +
+  
+  # Add profile interpretation
+  geom_text(
+    data = profile_annotations,
+    aes(
+      x = domain,
+      y = cluster,
+      label = profile
+    ),
+    inherit.aes = FALSE,
+    hjust = 0,
+    size = 3.2
+  ) +
+  
+  facet_wrap(
+    ~ algorithm,
+    ncol = 1
+  ) +
+  scale_x_discrete(
+    drop = FALSE,
+    labels = c(
+      "Profile" = ""
+    )
+  ) +
+  scale_fill_manual(
+    values = c(
+      "Very low relative concern" = "#4575B4",
+      "Lower relative concern" = "#91BFDB",
+      "Around average" = "#FFFFBF",
+      "Moderate relative concern" = "#FC8D59",
+      "Higher relative concern" = "#D73027"
+    ),
+    drop = FALSE
+  ) +
+  labs(
+    title = "Cardiovascular concern profiles by clustering algorithm",
+    subtitle = "Four-cluster solutions",
+    x = "Clinical domain",
+    y = "Practice cluster",
+    fill = "Relative concern"
+  ) +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(
+      angle = 45,
+      hjust = 1
+    ),
+    panel.grid = element_blank()
+  )
+```
+
 ## Sensitivity analysis
 
 Repeat the clustering without ACS and Stroke
@@ -1766,7 +1957,7 @@ cluster_profiles_band |>
 0 is approximately average relative to other practices; positive scores indicate greater relative concern; negative scores indicate lower relative concern.
 
 | Cluster | Main interpretation |
-|----|----|
+|------------------------------------|------------------------------------|
 | **1** | **Cholesterol / AF profile** — higher concern for cholesterol (+0.9), AF (+0.6) and HF (+0.5), while diabetes is around average. |
 | **2** | **Heart Failure profile** — HF is particularly high (+1.0), while all other domains are substantially below average, especially diabetes (−1.9) and hypertension (−1.2). |
 | **3** | **Hypertension profile** — hypertension is the main concern (+0.7), with moderately elevated diabetes and HF (+0.4 each). AF is relatively low (−0.8). |
@@ -1826,6 +2017,31 @@ K-means identified five potentially interpretable cardiovascular profiles; howev
 - Practice profiles may reflect population/case-mix differences as well as performance
 
 # References:
+
+## Indicator list
+
+| indicator_id | indicator_short_name | indicator_description | value_type | value_multiplier | indicator_polarity | domain |
+|---:|---|---|---|---:|---:|---|
+| 1 | Acute coronary syndrome admission rate in BSol population | Acute coronary syndrome admission rate per 100,000 population in Bsol | Rate | 100000 | -1 | Acute Coronory Syndrome |
+| 2 | Atrial fibrillation and anticoagulated | Percentage of patients aged 18 and over with GP recorded atrial fibrillation (AF) and a record of a CHADS2 or CHA2DS2-VASc score of 2 or more, who have received a prescription for any oral anticoagulation drug therapy in the preceding 6 months. | Percentage | 100 | 1 | Atrial Fibrillation |
+| 4 | Diabetes – meeting all 3 treatment targets | Percentage of patients meeting all 3 treatment targets for diabetes | Percentage | 100 | 1 | Diabetes |
+| 8 | Patients with CVD treated to target cholesterol threshold | Percentage of patients with GP recorded CVD (narrow definition), whose most recent blood cholesterol level is LDL-cholesterol less than or equal to 2.0 mmol/l or non-HDL cholesterol less than or equal to 2.6 mmol/l, in the preceding 12 months | Percentage | 100 | 1 | Cholesterol |
+| 9 | Patients with no CVD and a QRISK score >20% treated with a lipid lowering drug | Percentage of atients with no GP recorded CVD and a GP recorded QRISK score of 20% or more, who are currently treated with lipid lowering therapy | Percentage | 100 | 1 | Cholesterol |
+| 10 | Patients with GP recorded hypertension | Percentage of patients aged 18 and over with GP recorded hypertension, who have had a blood pressure reading within the preceding 12 months | Percentage | 100 | 1 | Hypertension |
+| 11 | Patients at risk of hypertension | Percentage of patients aged 18 and over, whose latest blood pressure value is in the at risk range for hypertension with no GP recorded hypertension | Percentage | 100 | -1 | Hypertension |
+| 12 | Patients treated to appropriate threshold (all ages) | Percentage of patients aged 18 and over, with GP recorded hypertension, in whom the last blood pressure reading (measured in the preceding 12 months) is below the age appropriate treatment threshold | Percentage | 100 | 1 | Hypertension |
+| 13 | Patients treated to appropriate threshold (age < 80) | Percentage of patients aged 79 and under controlled to age specific blood pressure target | Percentage | 100 | 1 | Hypertension |
+| 14 | Patients treated to appropriate threshold (age 80 and over) | Percentage of patients aged 80 and over controlled to age specific blood pressure target | Percentage | 100 | 1 | Hypertension |
+| 15 | Patients with CKD treated with LLT | Percentage of patients with GP recorded chronic kidney disease (G3a to G5), who are currently treated with lipid lowering therapy. | Percentage | 100 | 1 | Cholesterol |
+| 17 | Stroke admissions rate in BSol registered population | Stroke admission rate per 100,000 population registered at BSol practices | Rate | 100000 | -1 | Stroke |
+| 18 | Stroke admissions rate in BSol hospitals | Stroke admissions rate per 100,000 population for admissions to Bsol hospitals | Rate | 100000 | -1 | Stroke |
+| 19 | Heart failure admissions rate in Bsol registered population | Heart failure admissions rate per 100,000 population registered at Bsol practices | Rate | 100000 | -1 | Heart Failure |
+| 20 | Patients prescribed with RAAS drugs | Percentage of patients prescribed RAAS drug | Percentage | 100 | 1 | Heart Failure |
+| 21 | Patients prescribed with Beta-blockers drugs | Percentage of patients prescribed Beta-blockers drugs | Percentage | 100 | 1 | Heart Failure |
+| 22 | Patients prescribed with SGLT2 Inhibitor drugs | Percentage of patients prescribed SGLT2 Inhibitor drugs | Percentage | 100 | 1 | Heart Failure |
+| 23 | Patients prescribed with RAAS/Beta-blockers/SGLT2 Inhibitor drugs | Percentage of patients prescribed with one of the following drugs: RAAS, Beta-blockers, SGLT2 Inhibitor drugs | Percentage | 100 | 1 | Heart Failure |
+| 24 | Patients prescribed with RAAS, Beta-blockers and SGLT2 Inhibitor drugs | Percentage of patients prescribed with all of the following drugs: RAAS, Beta-blockers and SGLT2 Inhibitor drugs | Percentage | 100 | 1 | Heart Failure |
+| 25 | Patients underwent echo ejection-fraction procedures | Percentage of patients who received echo ejection-fraction procedures | Percentage | 100 | -1 | Heart Failure |
 
 [K-means clustering](https://www.datanovia.com/learn/machine-learning/clustering/kmeans)
 
